@@ -1,0 +1,14 @@
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: transactions-mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: transactions
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:

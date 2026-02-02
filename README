@@ -1,0 +1,136 @@
+Application is designed using Event Sourcing and CQRS patterns.
+MongoDB is used both as Event Store and for read projections.
+Architecture allows easy extraction into independent microservices.
+
+# Transactions Import API
+
+A Spring Boot application for importing bank account transactions and generating aggregated statistics.
+The system is designed using Event Sourcing and CQRS patterns and is ready to be evolved into a
+fully distributed microservices architecture.
+
+# Architecture Overview
+
+The application follows Event Sourcing as the core domain pattern:
+
+- All state changes are represented as immutable domain events
+- MongoDB is used as:
+  - Event Store (source of truth)
+  - Read model storage (projections)
+- Command and Query responsibilities are clearly separated (CQRS)
+
+Although currently implemented as a single application, the internal structure allows
+easy extraction into independent microservices.
+
+# High-level Flow
+CSV File Upload
+|
+v
+Command API (Import)
+|
+v
+Domain Aggregate (ImportAggregate)
+|
+v
+Domain Events
+|
+v
+Event Store (MongoDB)
+|
+v
+Event Handlers
+|
+v
+Read Projections (MongoDB)
+|
+v
+Query API (Statistics & Status)
+
+#Core Concepts
+
+Import Aggregate
+---------------------------------
+Represents a single CSV import process.
+It validates input data and emits domain events such as:
+
+- ImportStarted
+- TransactionImported
+- TransactionRejected
+- ImportCompleted
+
+Event Store
+---------------------------------
+All domain events are persisted in MongoDB.
+Events are immutable and ordered per aggregate.
+
+Projections (Read Models)
+---------------------------------
+Dedicated MongoDB collections optimized for queries:
+- Statistics by category
+- Statistics by IBAN
+- Statistics by month
+- Import status
+
+#API
+
+Command API
+- `POST /api/imports` – start new import
+- `POST /api/imports/{id}/file` – upload CSV file
+
+Query API
+- `GET /api/imports/{id}/status`
+- `GET /api/stats/category`
+- `GET /api/stats/iban`
+- `GET /api/stats/month`
+
+#CSV Format
+
+Each row in the CSV file must contain:
+IBAN,transactionDate,currency,category,amount
+Example: DE89370400440532013000,2026-01-15,EUR,GROCERIES,120.50
+
+#Running the Application
+
+Prerequisites
+- Java 17+
+- Docker & Docker Compose
+
+Start infrastructure
+```bash
+docker compose up -d
+
+Start application
+./gradlew bootRun
+
+Application will be available at:
+http://localhost:8080
+
+Health Check
+GET /actuator/health
+
+Basic workflow:
+Start process:
+curl -X POST http://localhost:8080/api/imports
+Return id, e.g. c9904a32-fe08-4dd1-91f1-960968b0afc7
+
+Upload file:
+curl -X POST -F "file=@data/transactions.csv" http://localhost:8080/api/imports/c9904a32-fe08-4dd1-91f1-960968b0afc7/file
+
+Check file upload status:
+curl http://localhost:8080/api/imports/c9904a32-fe08-4dd1-91f1-960968b0afc7/status
+
+Check statistics:
+curl.exe http://localhost:8080/api/stats/category
+curl.exe http://localhost:8080/api/stats/iban
+curl.exe http://localhost:8080/api/stats/month
+
+Docker e.g. commands
+docker exec -it transactions-mongo mongosh
+show dbs
+use transactions
+show collections
+
+Future Improvements
+1. Asynchronous event processing (Kafka / RabbitMQ)
+2. Snapshotting for faster aggregate rebuild
+3. Authentication & authorization
+4. Separate deployment per microservice
